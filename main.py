@@ -9,7 +9,14 @@ import time
 import random
 
 class PodcastWorkflow:
-    def __init__(self, papers_per_query=1):
+    def __init__(
+        self, 
+        papers_per_query=2, 
+        openai_api_key=None, 
+        anthropic_api_key=None,
+        elevenlabs_api_key=None,
+        llm_provider="openai"
+    ):
         # Define directory structure
         self.base_dir = Path(os.getcwd())
         self.input_dir = self.base_dir / "input"
@@ -18,6 +25,7 @@ class PodcastWorkflow:
         self.scripts_dir = self.base_dir / "scripts"
         self.used_scripts_dir = self.base_dir / "used_scripts"
         self.output_dir = self.base_dir / "outputs"
+        self.finished_text_dir = self.base_dir / "finished_text"
         
         # Create all necessary directories
         self._setup_directories()
@@ -29,12 +37,18 @@ class PodcastWorkflow:
         # Track downloads for reporting
         self.failed_downloads = []
         self.successful_downloads = []
+        
+        self.openai_api_key = openai_api_key
+        self.anthropic_api_key = anthropic_api_key
+        self.elevenlabs_api_key = elevenlabs_api_key
+        self.llm_provider = llm_provider
     
     def _setup_directories(self):
         """Create all required directories if they don't exist"""
         for directory in [self.input_dir, self.processed_pdfs_dir, 
                          self.cleaned_text_dir, self.scripts_dir, 
-                         self.used_scripts_dir, self.output_dir]:
+                         self.used_scripts_dir, self.output_dir,
+                         self.finished_text_dir]:
             directory.mkdir(parents=True, exist_ok=True)
     
     def process_new_pdfs(self):
@@ -106,11 +120,18 @@ class PodcastWorkflow:
             try:
                 generator.generate_podcast(str(transcript_file), str(output_file))
                 
-                # Move to used_scripts with same naming convention
+                # Move transcript to used_scripts
                 shutil.move(str(transcript_file), 
                           str(self.used_scripts_dir / f"used_{descriptive_name}.txt"))
                 print(f"Moved used script to: {self.used_scripts_dir / f'used_{descriptive_name}.txt'}")
                 
+                # Move cleaned text to finished folder
+                cleaned_text_file = self.cleaned_text_dir / f"clean_{descriptive_name}.txt"
+                if cleaned_text_file.exists():
+                    shutil.move(str(cleaned_text_file), 
+                              str(self.finished_text_dir / f"finished_{descriptive_name}.txt"))
+                    print(f"Moved cleaned text to: {self.finished_text_dir / f'finished_{descriptive_name}.txt'}")
+            
             except Exception as e:
                 print(f"Error generating podcast for {descriptive_name}: {str(e)}")
                 continue

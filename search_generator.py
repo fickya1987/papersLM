@@ -7,7 +7,7 @@ import time
 load_dotenv()
 
 SYSTEM_PROMPT = """You are an expert at converting research interests into effective academic search queries. 
-Given a description of research interests or topics, generate 3-5 specific keyword-based search queries that will find relevant academic papers.
+Given a description of research interests or topics, generate 3-5 specific keyword-based search queries that will find relevant academic papers. Focus on conceptual papers, like reviews.
 
 Guidelines:
 - Use Boolean operators (AND, OR) and quotation marks for precise searching
