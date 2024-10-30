@@ -4,9 +4,12 @@ import shutil
 from pdf_preprocessor import main as preprocess_pdf
 from transcript_writer import generate_transcript
 from podcast_generator import PodcastGenerator
+from search_generator import SearchQueryGenerator
+import time
+import random
 
 class PodcastWorkflow:
-    def __init__(self):
+    def __init__(self, papers_per_query=1):
         # Define directory structure
         self.base_dir = Path(os.getcwd())
         self.input_dir = self.base_dir / "input"
@@ -18,6 +21,14 @@ class PodcastWorkflow:
         
         # Create all necessary directories
         self._setup_directories()
+        
+        # Initialize search generator with papers_per_query
+        self.papers_per_query = papers_per_query
+        self.search_generator = SearchQueryGenerator()
+        
+        # Track downloads for reporting
+        self.failed_downloads = []
+        self.successful_downloads = []
     
     def _setup_directories(self):
         """Create all required directories if they don't exist"""
@@ -111,22 +122,109 @@ class PodcastWorkflow:
         # Add any additional cleanup steps here if needed
         pass
 
+    def generate_search_and_download(self, research_description):
+        """Generate search queries and download papers"""
+        print("\nGenerating search queries...")
+        queries = self.search_generator.generate_queries(research_description)
+        
+        if not queries:
+            print("Failed to generate valid search queries.")
+            return False
+            
+        print("\nGenerated queries:")
+        for i, query in enumerate(queries, 1):
+            print(f"{i}. {query}")
+        
+        print(f"\nAttempting to download {self.papers_per_query} papers per query...")
+        papers_downloaded = 0  # Add counter for downloaded papers
+        
+        for query in queries:
+            # If we've already downloaded enough papers, break
+            if papers_downloaded >= self.papers_per_query:
+                break
+                
+            try:
+                result = self.search_generator.download_papers(
+                    [query], 
+                    limit_per_query=self.papers_per_query - papers_downloaded  # Adjust limit
+                )
+                
+                if result:
+                    self.successful_downloads.extend(result)
+                    papers_downloaded += len(result)
+                
+            except Exception as e:
+                self.failed_downloads.append((query, str(e)))
+                print(f"\nFailed to download papers for query: {query}")
+                print(f"Error: {str(e)}")
+            
+            # Add small delay between queries if we need more papers
+            if papers_downloaded < self.papers_per_query:
+                time.sleep(random.uniform(2, 5))
+        
+        # Report results
+        if self.successful_downloads:
+            print(f"\nSuccessfully downloaded {len(self.successful_downloads)} papers:")
+            for paper in self.successful_downloads:
+                print(f"- {paper}")
+        
+        if self.failed_downloads:
+            print(f"\nFailed to download papers for {len(self.failed_downloads)} queries:")
+            for query, error in self.failed_downloads:
+                print(f"- Query: {query}")
+                print(f"  Error: {error}")
+        
+        # Return True if we got any papers at all
+        return bool(self.successful_downloads)
+
 def main():
-    workflow = PodcastWorkflow()
+    # Get number of papers from user
+    while True:
+        try:
+            papers_count = int(input("\nHow many papers would you like to download per search query? (1-5): "))
+            if 1 <= papers_count <= 5:
+                break
+            print("Please enter a number between 1 and 5.")
+        except ValueError:
+            print("Please enter a valid number.")
+
+    workflow = PodcastWorkflow(papers_per_query=papers_count)
     
-    print("Starting podcast generation workflow...")
+    print("\nStarting podcast generation workflow...")
     
-    # Step 1: Process PDFs
-    print("\n=== Step 1: Processing PDFs ===")
-    if workflow.process_new_pdfs():
-        # Step 2: Generate Transcripts
-        print("\n=== Step 2: Generating Transcripts ===")
-        if workflow.generate_transcripts():
-            # Step 3: Create Podcasts
-            print("\n=== Step 3: Creating Podcasts ===")
-            workflow.create_podcasts()
+    try:
+        # Get research description and download papers
+        research_description = input("\nPlease describe your research interests or topics:\n")
+        print("\n=== Step 0: Generating Searches and Downloading Papers ===")
+        
+        if workflow.generate_search_and_download(research_description):
+            # Step 1: Process PDFs
+            print("\n=== Step 1: Processing PDFs ===")
+            processed_names = workflow.process_new_pdfs()
+            if processed_names:  # Changed condition
+                # Step 2: Generate Transcripts
+                print("\n=== Step 2: Generating Transcripts ===")
+                if workflow.generate_transcripts():
+                    # Step 3: Create Podcasts
+                    print("\n=== Step 3: Creating Podcasts ===")
+                    workflow.create_podcasts()
+            else:
+                print("\nNo PDFs were successfully processed. Workflow cannot continue.")
+        else:
+            print("\nNo papers were successfully downloaded. Workflow cannot continue.")
     
-    print("\nWorkflow complete!")
+    except KeyboardInterrupt:
+        print("\n\nWorkflow interrupted by user.")
+    except Exception as e:
+        print(f"\n\nAn unexpected error occurred: {str(e)}")
+    finally:
+        print("\nWorkflow complete!")
+        
+        # Final summary
+        if hasattr(workflow, 'successful_downloads'):
+            print(f"\nTotal successful downloads: {len(workflow.successful_downloads)}")
+        if hasattr(workflow, 'failed_downloads'):
+            print(f"Total failed downloads: {len(workflow.failed_downloads)}")
 
 if __name__ == "__main__":
     main() 
