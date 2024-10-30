@@ -4,6 +4,7 @@ This project automatically converts academic papers (PDFs) into engaging podcast
 
 ## Features
 
+- Paper search term generation and PDF download (Work in progress) 
 - PDF preprocessing and text extraction
 - AI-powered conversion of academic content into natural dialogue
 - Text-to-speech generation with distinct voices for different speakers
@@ -67,3 +68,4 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 
 - OpenAI GPT-4 for transcript generation
 - ElevenLabs for text-to-speech conversion
+- scihub.py by zaytoun https://github.com/zaytoun/scihub.py
